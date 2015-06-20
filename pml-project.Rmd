@@ -24,6 +24,12 @@ The data for this project come from this source: http://groupware.les.inf.puc-ri
 library(doParallel)
 cl <- makeCluster(detectCores())
 registerDoParallel(cl)
+
+# ensure datafiles present, else download data files
+if(!file.exists("./pml-training.csv")) {download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv",
+              destfile="./pml-training.csv", method="curl")}
+if(!file.exists("./pml-testing.csv")) {download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv",
+              destfile="./pml-testing.csv", method="curl")}
 ```
 
 ## How I built the Model
@@ -68,25 +74,35 @@ testing <- training_clean[-inTrain,]
 preProc <- preProcess(training[,-53], method="pca", pcaComp=10)
 trainPC <- predict(preProc, training[,-53])
 ModelFit <- train(training$classe ~., method="rf", data=trainPC, prox=T)
+```
 
+
+## How I used cross validation 
+I constructed the model with the use of random forests. As stated in the documentation (https://www.stat.berkeley.edu/~breiman/RandomForests/cc_home.htm), there is no need for cross-validation or a separate test set to get an unbiased estimate of the test set error. This is because the test set error is estimated internally during the run.
+
+## Out of Sample Error
+The out of bag error (estimated) of the model using random forests method is 13.45% (as shown below:
+
+```{r OOB}
+ModelFit$finalModel
+```
+
+to confirm this, I have reserved the remaining 80% of the raw training data (testing set) to predict using this model. I would expect the out of sample error rate to be similar to that estimate. This out of sample error rate is 12.91% that I take to be similar to the above estimate. 
+
+```{r validation}
 testPC <- predict(preProc,testing[,-53])
 confusionMatrix(testing$classe, predict(ModelFit,testPC))
 ```
 
 
-## How I used cross validation
-I constructed the model with the use of random forests. As stated in the documentation (https://www.stat.berkeley.edu/~breiman/RandomForests/cc_home.htm), there is no need for cross-validation or a separate test set to get an unbiased estimate of the test set error. This is because the test set error is estimated internally during the run.
-
-
-## Out of Sample error
-the Out of Sample error rate (internally) of the sampled 20% of (raw) training data is reported as follows with the description of the final model.
-
-```{r OOB error}
-ModelFit$finalModel
-```
-
 ## Reasons for the choices I made
 I selected 10 components for the principle component analysis as an arbitrarily chosen number. I tried higher numbers (I tried 20 and 15) and thought that I would not want to overfit the training data. I settled on 10 principle components as a nice round number.
+
+I also chose to sample a small percentage (20%) of the (raw) training data because it does take a long time to process the model. This speeds up the process but has the drawback of reduced accuracy.
+
+
+## Testing on the testing_raw (blind data)
+As expected, the model correctly predicted about 90% of the new testing_raw data. Tuning the model better, e.g. by increasing the percentage of data used for training or increasing the number of pca components could increase the accuracy of prediction. However, given the restriction of an under-powered computer and limited time to explore and tune the model to get better results.
 
 
 ``` {r test, echo = F, message = F, warning = F, tidy = F}

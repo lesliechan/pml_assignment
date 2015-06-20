@@ -85,45 +85,14 @@ img {
 <p>The training data set (together with the testing data set for 20 different test cases) above is loaded with empty strings (“NA”, “”, “#DIV/0”) encoded as “NA”.</p>
 <p>Variables (columns) with near zero variability, “NA” strings within those variables and administrative variables (a total of seven variables i.e. X, user_name, raw_timestamp_part1, raw_timestamp_part2, cvtd_timestamp, new_window, num_window). This will leave 52 predictors (plus the classe variable). I repeat this process for the testing data set as well.</p>
 <p>The resultant (clean) training data set is split into training set and testing set of (20% and 80% respectively). Preprocessing of the (split) training set to select principle component analysis to select for 10 components.</p>
-<pre><code>## Confusion Matrix and Statistics
-## 
-##           Reference
-## Prediction    A    B    C    D    E
-##          A 4066   98  146  123   31
-##          B  151 2590  191   47   58
-##          C  100  133 2363  102   39
-##          D   88   53  170 2202   59
-##          E   59   94  106   92 2534
-## 
-## Overall Statistics
-##                                           
-##                Accuracy : 0.8764          
-##                  95% CI : (0.8711, 0.8815)
-##     No Information Rate : 0.2844          
-##     P-Value [Acc &gt; NIR] : &lt; 2.2e-16       
-##                                           
-##                   Kappa : 0.8437          
-##  Mcnemar's Test P-Value : &lt; 2.2e-16       
-## 
-## Statistics by Class:
-## 
-##                      Class: A Class: B Class: C Class: D Class: E
-## Sensitivity            0.9108   0.8726   0.7940   0.8581   0.9313
-## Specificity            0.9646   0.9649   0.9706   0.9718   0.9729
-## Pos Pred Value         0.9108   0.8528   0.8634   0.8561   0.8783
-## Neg Pred Value         0.9646   0.9701   0.9527   0.9723   0.9854
-## Prevalence             0.2844   0.1891   0.1896   0.1635   0.1734
-## Detection Rate         0.2591   0.1650   0.1506   0.1403   0.1615
-## Detection Prevalence   0.2844   0.1935   0.1744   0.1639   0.1838
-## Balanced Accuracy      0.9377   0.9188   0.8823   0.9150   0.9521</code></pre>
 </div>
 <div id="how-i-used-cross-validation" class="section level2">
 <h2>How I used cross validation</h2>
 <p>I constructed the model with the use of random forests. As stated in the documentation (<a href="https://www.stat.berkeley.edu/~breiman/RandomForests/cc_home.htm">https://www.stat.berkeley.edu/~breiman/RandomForests/cc_home.htm</a>), there is no need for cross-validation or a separate test set to get an unbiased estimate of the test set error. This is because the test set error is estimated internally during the run.</p>
 </div>
 <div id="out-of-sample-error" class="section level2">
-<h2>Out of Sample error</h2>
-<p>the Out of Sample error rate (internally) of the sampled 20% of (raw) training data is reported as follows with the description of the final model.</p>
+<h2>Out of Sample Error</h2>
+<p>The out of bag error (estimated) of the model using random forests method is 13.45% (as shown below:</p>
 <pre class="r"><code>ModelFit$finalModel</code></pre>
 <pre><code>## 
 ## Call:
@@ -132,18 +101,57 @@ img {
 ##                      Number of trees: 500
 ## No. of variables tried at each split: 2
 ## 
-##         OOB estimate of  error rate: 12.68%
+##         OOB estimate of  error rate: 13.14%
 ## Confusion matrix:
 ##      A   B   C   D   E class.error
-## A 1022  20  36  35   3  0.08422939
-## B   50 646  41  12  11  0.15000000
-## C   37  30 577  30  11  0.15766423
-## D   21  13  51 550   9  0.14596273
-## E    9  36  24  19 634  0.12188366</code></pre>
+## A 1022  28  30  26  10  0.08422939
+## B   51 621  47  17  24  0.18289474
+## C   34  34 586  16  15  0.14452555
+## D   25  11  52 549   7  0.14751553
+## E   18  25  23  23 633  0.12326870</code></pre>
+<p>to confirm this, I have reserved the remaining 80% of the raw training data (testing set) to predict using this model. I would expect the out of sample error rate to be similar to that estimate. This out of sample error rate is 12.91% that I take to be similar to the above estimate.</p>
+<pre class="r"><code>testPC &lt;- predict(preProc,testing[,-53])
+confusionMatrix(testing$classe, predict(ModelFit,testPC))</code></pre>
+<pre><code>## Confusion Matrix and Statistics
+## 
+##           Reference
+## Prediction    A    B    C    D    E
+##          A 4144   54  125  110   31
+##          B  256 2493  164   50   74
+##          C  169  116 2325   87   40
+##          D  122   49  190 2167   44
+##          E   68  120  121  107 2469
+## 
+## Overall Statistics
+##                                          
+##                Accuracy : 0.8664         
+##                  95% CI : (0.861, 0.8717)
+##     No Information Rate : 0.3032         
+##     P-Value [Acc &gt; NIR] : &lt; 2.2e-16      
+##                                          
+##                   Kappa : 0.8306         
+##  Mcnemar's Test P-Value : &lt; 2.2e-16      
+## 
+## Statistics by Class:
+## 
+##                      Class: A Class: B Class: C Class: D Class: E
+## Sensitivity            0.8708   0.8803   0.7949   0.8596   0.9289
+## Specificity            0.9707   0.9577   0.9677   0.9693   0.9681
+## Pos Pred Value         0.9283   0.8209   0.8495   0.8425   0.8558
+## Neg Pred Value         0.9452   0.9732   0.9537   0.9730   0.9852
+## Prevalence             0.3032   0.1804   0.1864   0.1606   0.1694
+## Detection Rate         0.2640   0.1588   0.1481   0.1381   0.1573
+## Detection Prevalence   0.2844   0.1935   0.1744   0.1639   0.1838
+## Balanced Accuracy      0.9208   0.9190   0.8813   0.9144   0.9485</code></pre>
 </div>
 <div id="reasons-for-the-choices-i-made" class="section level2">
 <h2>Reasons for the choices I made</h2>
 <p>I selected 10 components for the principle component analysis as an arbitrarily chosen number. I tried higher numbers (I tried 20 and 15) and thought that I would not want to overfit the training data. I settled on 10 principle components as a nice round number.</p>
+<p>I also chose to sample a small percentage (20%) of the (raw) training data because it does take a long time to process the model. This speeds up the process but has the drawback of reduced accuracy.</p>
+</div>
+<div id="testing-on-the-testing_raw-blind-data" class="section level2">
+<h2>Testing on the testing_raw (blind data)</h2>
+<p>As expected, the model correctly predicted about 90% of the new testing_raw data. Tuning the model better, e.g. by increasing the percentage of data used for training or increasing the number of pca components could increase the accuracy of prediction. However, given the restriction of an under-powered computer and limited time to explore and tune the model to get better results.</p>
 </div>
 
 

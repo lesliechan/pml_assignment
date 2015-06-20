@@ -1,0 +1,106 @@
+---
+title: "PML Project"
+author: "lesliechan"
+date: "June 19, 2015"
+output: html_document
+---
+## Background
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement – a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: http://groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset). 
+
+
+## Data
+The training data for this project are available here: 
+
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv
+
+The test data are available here: 
+
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv
+
+The data for this project come from this source: http://groupware.les.inf.puc-rio.br/har. If you use the document you create for this class for any purpose please cite them as they have been very generous in allowing their data to be used for this kind of assignment. 
+
+```{r preliminary, echo = F, message = F, warning = F, tidy = F}
+# enable multi-core processing
+library(doParallel)
+cl <- makeCluster(detectCores())
+registerDoParallel(cl)
+```
+
+## How I built the Model
+The training data set (together with the testing data set for 20 different test cases) above is loaded with empty strings ("NA", "", "#DIV/0") encoded as "NA".
+
+```{r loaddata, echo = F, message = F, warning = F, tidy = F}
+library(caret)
+## Loading the training/ testing data
+training_raw <- read.csv(file="pml-training.csv", 
+                         header=T, sep=",", 
+                         na.strings=c("NA","","#DIV/0"))
+testing_raw <- read.csv(file="pml-testing.csv", 
+                        header=T, sep=",",
+                        na.strings=c("NA","","#DIV/0"))
+```
+
+Variables (columns) with near zero variability, "NA" strings within those variables and administrative variables (a total of seven variables i.e. X, user_name, raw_timestamp_part1, raw_timestamp_part2, cvtd_timestamp, new_window, num_window). This will leave 52 predictors (plus the classe variable). I repeat this process for the testing data set as well.
+
+``` {r preprocessData, echo = F, message = F, warning = F, tidy = F}
+## find near zero variables
+nsv <- nearZeroVar(training_raw, saveMetrics=T)
+
+## adjust both training and testing_raw data
+## admin data from 1:7 [brings variables to 93]
+training_clean <- training_raw[!nsv$nzv]
+training_clean <- training_clean[7:length(training_clean)]
+testing_clean <- testing_raw[!nsv$nzv]
+testing_clean <- testing_clean[7:length(testing_clean)]
+## remove any columns with NAs (53 variables)
+testing_clean <- testing_clean[colSums(is.na(training_clean)) == 0]
+training_clean <- training_clean[colSums(is.na(training_clean)) == 0]
+```
+
+The resultant (clean) training data set is split into training set and testing set of (20% and 80% respectively). Preprocessing of the (split) training set to select principle component analysis to select for 10 components. 
+
+```{r splitData, echo = F, message = F, warning = F, tidy = F}
+## split training set to trainset (20%) testset (80%)
+inTrain <- createDataPartition(y=training_clean$classe, p=0.2, list=F)
+training <- training_clean[inTrain,]
+testing <- training_clean[-inTrain,]
+
+preProc <- preProcess(training[,-53], method="pca", pcaComp=10)
+trainPC <- predict(preProc, training[,-53])
+ModelFit <- train(training$classe ~., method="rf", data=trainPC, prox=T)
+
+testPC <- predict(preProc,testing[,-53])
+confusionMatrix(testing$classe, predict(ModelFit,testPC))
+```
+
+
+## How I used cross validation
+I constructed the model with the use of random forests. As stated in the documentation (https://www.stat.berkeley.edu/~breiman/RandomForests/cc_home.htm), there is no need for cross-validation or a separate test set to get an unbiased estimate of the test set error. This is because the test set error is estimated internally during the run.
+
+
+## Out of Sample error
+the Out of Sample error rate (internally) of the sampled 20% of (raw) training data is reported as follows with the description of the final model.
+
+```{r OOB error}
+ModelFit$finalModel
+```
+
+## Reasons for the choices I made
+I selected 10 components for the principle component analysis as an arbitrarily chosen number. I tried higher numbers (I tried 20 and 15) and thought that I would not want to overfit the training data. I settled on 10 principle components as a nice round number.
+
+
+``` {r test, echo = F, message = F, warning = F, tidy = F}
+## Testing on testing_raw/ testing_clean set
+tester <- predict(preProc,testing_clean[,-53])
+answers <- predict(ModelFit, tester)
+
+pml_write_files = function(x){
+  n = length(x)
+  for(i in 1:n){
+    filename = paste0("problem_id_",i,".txt")
+    write.table(x[i],file=filename,quote=FALSE,row.names=FALSE,col.names=FALSE)
+  }
+}
+
+pml_write_files(answers)
+```
